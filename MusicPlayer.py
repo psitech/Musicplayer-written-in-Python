@@ -7,7 +7,8 @@ from pathlib import Path
 from mutagen import File
 
 # initialize Pygame mixer
-pygame.init()
+pygame.mixer.init()
+pygame.display.init() # Initialize the Pygame display module
 
 class MusicPlayer(ctk.CTk):
     SONG_END = pygame.USEREVENT + 1 # Define custom event for song end
@@ -73,8 +74,10 @@ class MusicPlayer(ctk.CTk):
         self.current_time_label = ctk.CTkLabel(self.progress_frame, text="00:00", font=("Segoe UI", 14))
         self.current_time_label.pack(side="left", padx=5)
 
-        self.seek_slider = ctk.CTkSlider(self.progress_frame, from_=0, to=100, height=16, command=self.slider_event)
+        # Initialize slider with a safe non-zero range and disabled state
+        self.seek_slider = ctk.CTkSlider(self.progress_frame, from_=0, to=1, height=16, command=self.slider_event)
         self.seek_slider.set(0)
+        self.seek_slider.configure(state='disabled') # Disable until a track is loaded
         self.seek_slider.pack(side="left", fill="x", expand=True, padx=10)
 
         self.total_time_label = ctk.CTkLabel(self.progress_frame, text="00:00", font=("Segoe UI", 14))
@@ -108,7 +111,7 @@ class MusicPlayer(ctk.CTk):
 
         # start background monitor for playback and auto-next
         self.monitor_playback()
-        self.after(100, self.check_pygame_events) # Start checking for pygame events
+        self.after(10, self.check_pygame_events) # start checking for pygame events
 
     def slider_event(self, value): # handles user-controlled seeking
         if self.is_playing:
@@ -116,6 +119,8 @@ class MusicPlayer(ctk.CTk):
             pygame.mixer.music.play(start=value)
             if self.is_paused:
                 pygame.mixer.music.pause()
+        # Update current_time_label immediately when slider is moved, even if paused or not playing
+        self.current_time_label.configure(text=self.format_time(value))
 
     def monitor_playback(self): # stable updates for seek bar position
         if self.is_playing and not self.is_paused:
@@ -125,14 +130,14 @@ class MusicPlayer(ctk.CTk):
                 self.seek_slider.set(current_actual_time)
                 self.current_time_label.configure(text=self.format_time(current_actual_time))
 
-        self.after(250, self.monitor_playback)
+        self.after(100, self.monitor_playback)
 
-    def check_pygame_events(self): # New method to handle pygame events
+    def check_pygame_events(self): # method to handle pygame events
         for event in pygame.event.get():
             if event.type == self.SONG_END:
                 self.next_track()
                 break # Process only one SONG_END event per check
-        self.after(100, self.check_pygame_events) # Schedule next check
+        self.after(10, self.check_pygame_events) # schedule next check 
 
     def trigger_search(self, event=None): # F3 search functionality
         dialog = ctk.CTkInputDialog(text="Search for a track or folder:", title="Find Music")
@@ -165,7 +170,7 @@ class MusicPlayer(ctk.CTk):
             self.playlist.delete(0, END)
             threading.Thread(target=self.scan_logic, args=(folder_path,), daemon=True).start()
 
-    def scan_logic(self, folder_path): # recursive scan with alphabetical sorting by display path
+    def scan_logic(self, folder_path):
         extensions = ('.mp3', '.wav', '.flac')
         temp_data = []
         base_path = Path(folder_path)
@@ -222,15 +227,19 @@ class MusicPlayer(ctk.CTk):
                 audio = File(track_path)
                 self.song_length = audio.info.length
 
-                # reset seek variables
+                # Reset seek variables for new track
                 self.seek_offset = 0
-                self.seek_slider.configure(from_=0, to=self.song_length)
+
+                # Enable slider and set its range when a track is playing
+                self.seek_slider.configure(state='normal')
+                # Ensure song_length is at least 1 to prevent ZeroDivisionError in slider
+                self.seek_slider.configure(from_=0, to=max(1, self.song_length))
                 self.seek_slider.set(0)
                 self.total_time_label.configure(text=self.format_time(self.song_length))
 
                 pygame.mixer.music.load(track_path)
-                pygame.mixer.music.play()
-                pygame.mixer.music.set_endevent(self.SONG_END)    # Set the custom end event
+                pygame.mixer.music.play() 
+                pygame.mixer.music.set_endevent(self.SONG_END) # Set the custom end event
                 self.is_playing, self.is_paused = True, False
 
                 self.playlist.selection_clear(0, END)             # clear all current selections
@@ -254,10 +263,14 @@ class MusicPlayer(ctk.CTk):
 
     def stop_music(self):
         pygame.mixer.music.stop()
+        pygame.event.clear(self.SONG_END) # clear any pending SONG_END events
         self.is_playing, self.is_paused = False, False
         self.seek_offset = 0
         self.seek_slider.set(0)
+        self.seek_slider.configure(to=1) # reset to a safe non-zero 'to' value
+        self.seek_slider.configure(state='disabled') # disable slider after stopping
         self.current_time_label.configure(text="00:00")
+        self.total_time_label.configure(text="00:00")
 
     def next_track(self, event=None):
         if self.music_files:
