@@ -6,9 +6,9 @@ from tkinter import filedialog, Listbox, END, SINGLE
 from pathlib import Path
 from mutagen import File
 
-# initialize Pygame mixer
+# Initialize Pygame mixer & display module
 pygame.mixer.init()
-pygame.display.init() # Initialize the Pygame display module
+pygame.display.init()
 
 class MusicPlayer(ctk.CTk):
     SONG_END = pygame.USEREVENT + 1 # Define custom event for song end
@@ -16,10 +16,27 @@ class MusicPlayer(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # Window Setup (1280x720)
+        # Window setup
         self.title("MusicPlayer")
-        self.geometry("1280x720")
         ctk.set_appearance_mode("dark")
+
+        # Define desired window size
+        desired_width = 1280
+        desired_height = 720
+
+        # Set the geometry first to ensure dimensions are known (though not yet positioned)
+        self.geometry(f"{desired_width}x{desired_height}")
+
+        # Center the window
+        self.update_idletasks() # ensure screen dimensions are available
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+
+        x = (screen_width // 2) - (desired_width // 2)
+        y = (screen_height // 2) - (desired_height // 2)
+        
+        # Apply the final geometry including position
+        self.geometry(f'{desired_width}x{desired_height}+{x}+{y}')
 
         # State variables
         self.music_files = []
@@ -40,17 +57,17 @@ class MusicPlayer(ctk.CTk):
         self.bind("<Up>", self.prev_track)
         self.bind("<Down>", self.next_track)
 
-        # Main Layout
+        # Main layout
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # Main Container
+        # Main container
         self.main_container = ctk.CTkFrame(self, corner_radius=20)
         self.main_container.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
         self.main_container.grid_columnconfigure(0, weight=1)
         self.main_container.grid_rowconfigure(0, weight=1)
 
-        # Playlist Area
+        # Playlist area
         self.list_frame = ctk.CTkFrame(self.main_container, corner_radius=15, fg_color="#1a1a1a")
         self.list_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
@@ -67,10 +84,10 @@ class MusicPlayer(ctk.CTk):
         self.scrollbar.pack(side="right", fill="y", padx=(0, 5), pady=5)
         self.playlist.config(yscrollcommand=self.scrollbar.set)
 
-        # Seek Bar (Slider) and Time Labels
+        # Seek bar (slider
         self.progress_frame = ctk.CTkFrame(self.main_container, corner_radius=10, fg_color="transparent")
         self.progress_frame.grid(row=1, column=0, padx=10, pady=(0, 20), sticky="ew")
-
+        # Time label
         self.current_time_label = ctk.CTkLabel(self.progress_frame, text="00:00", font=("Segoe UI", 14))
         self.current_time_label.pack(side="left", padx=5)
 
@@ -83,7 +100,7 @@ class MusicPlayer(ctk.CTk):
         self.total_time_label = ctk.CTkLabel(self.progress_frame, text="00:00", font=("Segoe UI", 14))
         self.total_time_label.pack(side="right", padx=5)
 
-        # Control Panel
+        # Control panel
         self.controls_frame = ctk.CTkFrame(self.main_container, corner_radius=15)
         self.controls_frame.grid(row=2, column=0, padx=10, pady=(0, 10), sticky="ew")
         self.controls_frame.grid_columnconfigure(1, weight=1)
@@ -109,7 +126,7 @@ class MusicPlayer(ctk.CTk):
         self.status_label = ctk.CTkLabel(self.controls_frame, text="0 tracks loaded", font=("Segoe UI", 14))
         self.status_label.grid(row=0, column=7, padx=10, pady=10, sticky="e")
 
-        # start background monitor for playback and auto-next
+        # Start background monitor for playback and auto-next
         self.monitor_playback()
         self.after(10, self.check_pygame_events) # start checking for pygame events
 
@@ -137,7 +154,7 @@ class MusicPlayer(ctk.CTk):
             if event.type == self.SONG_END:
                 self.next_track()
                 break # Process only one SONG_END event per check
-        self.after(10, self.check_pygame_events) # schedule next check 
+        self.after(10, self.check_pygame_events) # schedule next check
 
     def trigger_search(self, event=None): # F3 search functionality
         dialog = ctk.CTkInputDialog(text="Search for a track or folder:", title="Find Music")
@@ -238,7 +255,7 @@ class MusicPlayer(ctk.CTk):
                 self.total_time_label.configure(text=self.format_time(self.song_length))
 
                 pygame.mixer.music.load(track_path)
-                pygame.mixer.music.play() 
+                pygame.mixer.music.play()
                 pygame.mixer.music.set_endevent(self.SONG_END) # Set the custom end event
                 self.is_playing, self.is_paused = True, False
 
